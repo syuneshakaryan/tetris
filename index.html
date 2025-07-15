@@ -49,21 +49,26 @@
     }
 
     #controls {
-      margin-top: 20px;
+      margin-top: 3vh;
       display: flex;
-      gap: 30px;
+      gap: 5vw;
       justify-content: center;
-      font-size: 100px;
     }
 
     .control {
-      cursor: pointer;
-      padding: 10px 20px;
-      border: 2px solid lime;
-      border-radius: 10px;
+      font-size: 8vw;            /* Responsive font size */
+      padding: 3vw 5vw;          /* Responsive padding */
+      border: 0.5vw solid lime;
+      border-radius: 2vw;
       background: black;
       color: lime;
+      cursor: pointer;
       user-select: none;
+      transition: background 0.1s ease;
+    }
+
+    .control:active {
+      background: #003300;
     }
 
     .control:active {
