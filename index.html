@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tetris</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+      color: lime;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    #welcome {
+      font-size: 48px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    #container {
+      position: relative;
+      display: inline-block;
+    }
+
+    #scoreDisplay {
+      position: absolute;
+      top: 0;
+      right: 0;
+      font-size: 60px;
+      padding: 4px 8px;
+      background: black;
+    }
+
+    #game {
+      white-space: pre;
+      line-height: 1em;
+      font-size: 96px;
+    }
+
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+      font-size: 100px;
+    }
+
+    .control {
+      cursor: pointer;
+      padding: 10px 20px;
+      border: 2px solid lime;
+      border-radius: 10px;
+      background: black;
+      color: lime;
+      user-select: none;
+    }
+
+    .control:active {
+      background: #003300;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="welcome">Welcome to Tetris!</div>
+
+  <div id="container">
+    <div id="scoreDisplay">Score: 0</div>
+    <div id="game"></div>
+  </div>
+
+  <div id="controls">
+    <div id="left" class="control">←</div>
+    <div id="down" class="control">↓</div>
+    <div id="right" class="control">→</div>
+  </div>
+
+  <script>
+    const width = 10;
+    const height = 20;
+    const gameEl = document.getElementById('game');
+    const scoreEl = document.getElementById('scoreDisplay');
+
+    let field = Array.from({ length: height }, () => Array(width).fill(' '));
+
+    function rotate(piece) {
+      return piece.map(([x, y]) => [y, -x]);
+    }
+
+    const baseTetrominoes = [
+      [[0,0],[1,0],[2,0],[3,0]], // I
+      [[0,0],[1,0],[0,1],[1,1]], // O
+      [[1,0],[0,1],[1,1],[2,1]], // T
+      [[0,0],[0,1],[0,2],[1,2]], // L
+      [[1,0],[1,1],[1,2],[0,2]], // J
+      [[1,0],[2,0],[0,1],[1,1]], // S
+      [[0,0],[1,0],[1,1],[2,1]]  // Z
+    ];
+
+    const tetrominoes = [];
+    for (const base of baseTetrominoes) {
+      const variants = new Set();
+      let shape = base;
+      for (let i = 0; i < 4; i++) {
+        const minX = Math.min(...shape.map(p => p[0]));
+        const minY = Math.min(...shape.map(p => p[1]));
+        const normalized = shape.map(([x, y]) => [x - minX, y - minY]);
+        const key = JSON.stringify(normalized);
+        if (!variants.has(key)) {
+          variants.add(key);
+          tetrominoes.push(normalized);
+        }
+        shape = rotate(shape);
+      }
+    }
+
+    let currentPiece = [];
+    let posX = 0, posY = 0;
+    let score = 0;
+    let dropInterval = 500;
+    let lastDrop = Date.now();
+
+    function spawnPiece() {
+      currentPiece = tetrominoes[Math.floor(Math.random() * tetrominoes.length)];
+      const pieceMinX = Math.min(...currentPiece.map(([x, _]) => x));
+      const pieceMaxX = Math.max(...currentPiece.map(([x, _]) => x));
+      const pieceWidth = pieceMaxX - pieceMinX + 1;
+      posX = Math.floor(Math.random() * (width - pieceWidth + 1));
+      posY = 0;
+
+      if (!canMove(0, 0)) {
+        alert('Game Over! Final Score: ' + score);
+        location.reload();
+      }
+    }
+
+    function canMove(dx, dy) {
+      return currentPiece.every(([x, y]) => {
+        const newX = posX + x + dx;
+        const newY = posY + y + dy;
+        return (
+          newX >= 0 && newX < width &&
+          newY >= 0 && newY < height &&
+          field[newY][newX] === ' '
+        );
+      });
+    }
+
+    function placePiece() {
+      currentPiece.forEach(([x, y]) => {
+        field[posY + y][posX + x] = '#';
+      });
+    }
+
+    function clearLines() {
+      let linesCleared = 0;
+      for (let y = height - 1; y >= 0; y--) {
+        if (field[y].every(cell => cell !== ' ')) {
+          field.splice(y, 1);
+          field.unshift(Array(width).fill(' '));
+          linesCleared++;
+          y++;
+        }
+      }
+      const lineScores = [0, 100, 300, 500, 800];
+      score += lineScores[linesCleared] || linesCleared * 100;
+    }
+
+    function draw() {
+      scoreEl.textContent = 'Score: ' + score;
+      let screen = '';
+
+      screen += '+' + '-'.repeat(width * 2) + '+\n';
+      for (let y = 0; y < height; y++) {
+        screen += '|';
+        for (let x = 0; x < width; x++) {
+          let filled = field[y][x];
+          let partOfPiece = currentPiece.some(([px, py]) =>
+            x === posX + px && y === posY + py
+          );
+          screen += partOfPiece ? '[]' : (filled !== ' ' ? '[]' : '  ');
+        }
+        screen += '|\n';
+      }
+      screen += '+' + '-'.repeat(width * 2) + '+\n';
+
+      gameEl.textContent = screen;
+    }
+
+    function update() {
+      if (Date.now() - lastDrop > dropInterval) {
+        if (canMove(0, 1)) {
+          posY++;
+        } else {
+          placePiece();
+          clearLines();
+          spawnPiece();
+        }
+        lastDrop = Date.now();
+      }
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft' && canMove(-1, 0)) posX--;
+      if (e.key === 'ArrowRight' && canMove(1, 0)) posX++;
+      if (e.key === 'ArrowDown' && canMove(0, 1)) posY++;
+    });
+
+    // Touch/Click Controls
+    document.getElementById('left').addEventListener('click', () => {
+      if (canMove(-1, 0)) posX--;
+    });
+    document.getElementById('right').addEventListener('click', () => {
+      if (canMove(1, 0)) posX++;
+    });
+    document.getElementById('down').addEventListener('click', () => {
+      if (canMove(0, 1)) posY++;
+    });
+
+    spawnPiece();
+    update();
+  </script>
+</body>
+</html>
